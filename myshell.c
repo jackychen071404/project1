@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
 #include "myshell.h"
@@ -49,10 +50,13 @@ void execute_mkdir(char ** command) {
   pid_t pid = fork(); //a new child process, cloned from parent
 
   if (pid == 0) { //are we in child process?
-    execvp("mkdir", command); //let the child execute mkdir, in case it fails so parent shell wont be affected
+    if (execvp("mkdir", command) == -1) {
+      perror("mkdir failed"); //let the child execute mkdir, in case it fails so parent shell wont be affected
+    }
+    exit(EXIT_FAILURE);
   } else if (pid > 0) { //are we in parent process?
     int status;
-    waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0); //status holds the child process status, and 0 means to wait for this child to terminate
   }
 }
 
