@@ -33,36 +33,21 @@ int is_valid_command(char * command) {
 }
 
 void execute_command(char ** command) {
-  if (strcmp(command[0], "cd") == 0) {
-    execute_cd(command);
-  } else if (strcmp(command[0], "mkdir") == 0) {
-    execute_mkdir(command);
-  }
-}
-
-void execute_cd(char ** command) {
-  if (command[1] == NULL) {
-    printf("ERROR! Expected argument to 'cd'");
-  }
-}
-
-void execute_mkdir(char ** command) {
   pid_t pid = fork(); //a new child process, cloned from parent
 
   if (pid == 0) { //are we in child process?
-    if (execvp("mkdir", command) == -1) {
-      perror("mkdir failed"); //let the child execute mkdir, in case it fails so parent shell wont be affected
+    if (execvp(command[0], command) == -1) {
+      perror("execvp failed."); //let the child execute mkdir, in case it fails so parent shell wont be affected
     }
     exit(EXIT_FAILURE);
   } else if (pid > 0) { //are we in parent process?
     int status;
     waitpid(pid, &status, 0); //status holds the child process status, and 0 means to wait for this child to terminate
+  } else {
+    perror("fork failed.");
   }
 }
 
-void execute_ls(char ** command) {
-
-}
 int main() {
   char line[MAX_LINE];
   
@@ -83,9 +68,9 @@ int main() {
     }
     if (is_valid_command(operations[0])) {
       execute_command(operations);
-      printf("\nAwesome\n");
+      //printf("\nAwesome\n");
     } else {
-      printf("\nERROR!: '%s' is not a valid command\n", operations[0]);
+      printf("ERROR!: '%s' is not a valid command\n", operations[0]);
     }
   }
   return 0;
