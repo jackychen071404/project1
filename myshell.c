@@ -49,9 +49,10 @@ void execute_mkdir(char ** command) {
   pid_t pid = fork(); //a new child process, cloned from parent
 
   if (pid == 0) { //are we in child process?
-
+    execvp("mkdir", command); //let the child execute mkdir, in case it fails so parent shell wont be affected
   } else if (pid > 0) { //are we in parent process?
-
+    int status;
+    waitpid(pid, &status, 0);
   }
 }
 
