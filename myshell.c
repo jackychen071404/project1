@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <signal.h>
 #include <string.h>
 #include "myshell.h"
@@ -33,6 +34,8 @@ int is_valid_command(char * command) {
 void execute_command(char ** command) {
   if (strcmp(command[0], "cd") == 0) {
     execute_cd(command);
+  } else if (strcmp(command[0], "mkdir") == 0) {
+    execute_mkdir(command);
   }
 }
 
@@ -42,6 +45,19 @@ void execute_cd(char ** command) {
   }
 }
 
+void execute_mkdir(char ** command) {
+  pid_t pid = fork(); //a new child process, cloned from parent
+
+  if (pid == 0) { //are we in child process?
+
+  } else if (pid > 0) { //are we in parent process?
+
+  }
+}
+
+void execute_ls(char ** command) {
+
+}
 int main() {
   char line[MAX_LINE];
   
