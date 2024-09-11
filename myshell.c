@@ -12,7 +12,11 @@ const char *valid_commands[] = {
   "ls","cd", "pwd", "mkdir", "rmdir", "rm", "cp", "mv", "echo", "cat", "grep", "man", "wc", "touch", NULL
 };
 
-void line_parser(char* line, char**split_line) {
+const char *valid_operators[] = {
+  "<", ">", "|", "&"
+};
+
+void line_parser(char* line, char**split_line, char**pipeline) {
   char *split = strtok(line, " ");
   int i = 0;
   while (split != NULL) {
@@ -69,10 +73,11 @@ int main() {
     }
     line[strcspn(line, "\n")] = 0; //fgets reads a \n with enter. Remove it from the line.
     char *operations[MAX_ARGS];
-    line_parser(line, operations);
+    char *pipeline[MAX_ARGS];
+    line_parser(line, operations, pipeline);
     /*for (int i = 0; operations[i] != NULL; i++) {
-            printf(" %s",operations[i]);
-	    }*/
+      printf(" %s",operations[i]);
+      }*/
     if (operations[0] == NULL) {
       continue; //do nothing if blank
     }
