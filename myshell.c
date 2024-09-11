@@ -16,7 +16,7 @@ const char *valid_operators[] = {
   "<", ">", "|", "&"
 };
 
-void line_parser(char* line, char**split_line, char**pipeline) {
+void line_parser(char* line, char**split_line) {
   char *split = strtok(line, " ");
   int i = 0;
   while (split != NULL) {
@@ -25,6 +25,10 @@ void line_parser(char* line, char**split_line, char**pipeline) {
   }
   split_line[i] = NULL; //null terminate end of char array
   //printf("%s", split);
+}
+
+void tokenizer(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN]) {
+
 }
 
 int is_valid_command(char * command) {
@@ -73,20 +77,19 @@ int main() {
     }
     line[strcspn(line, "\n")] = 0; //fgets reads a \n with enter. Remove it from the line.
     char *operations[MAX_ARGS];
-    char *pipeline[MAX_ARGS];
-    line_parser(line, operations, pipeline);
+    line_parser(line, operations);
     /*for (int i = 0; operations[i] != NULL; i++) {
       printf(" %s",operations[i]);
       }*/
     if (operations[0] == NULL) {
       continue; //do nothing if blank
     }
-    if (is_valid_command(operations[0])) {
+    //if (is_valid_command(operations[0])) {
       execute_command(operations);
       //printf("\nAwesome\n");
-    } else {
-      printf("ERROR!: '%s' is not a valid command\n", operations[0]);
-    }
+      //} else {
+      //printf("ERROR!: '%s' is not a valid command\n", operations[0]);
+      //}
   }
   return 0;
 }
