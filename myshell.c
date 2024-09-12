@@ -7,6 +7,7 @@
 #include "myshell.h"
 #define MAX_LINE 512
 #define MAX_ARGS 64
+#define MAX_ARGS_LEN 32
 
 const char *valid_commands[] = {
   "ls","cd", "pwd", "mkdir", "rmdir", "rm", "cp", "mv", "echo", "cat", "grep", "man", "wc", "touch", NULL
@@ -27,8 +28,27 @@ void line_parser(char* line, char**split_line) {
   //printf("%s", split);
 }
 
-void tokenizer(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN]) {
-
+void tokenizer(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN], int* lastStr) {
+  int i = 0, j = 0, k = 0;
+  while (line[i] != NULL) {
+    if (line[i] == '>' || line[i] == '<' || line[i] == '|') {
+      if (k > 0) {
+	tokens[j][k] = '\0'; //end the character of the last arg, before start new
+	j++;
+	k = 0;
+      }
+      tokens[j][0] = line[i];
+      tokens[j][1] = '\0';
+      j++;
+      i++;
+    } else {
+      tokens[j][k] = line[i];
+      k++;
+      i++;
+    }
+  }
+  *lastStr = j+1;
+  tokens[j][k] = '\0';
 }
 
 int is_valid_command(char * command) {
@@ -77,15 +97,20 @@ int main() {
     }
     line[strcspn(line, "\n")] = 0; //fgets reads a \n with enter. Remove it from the line.
     char *operations[MAX_ARGS];
-    line_parser(line, operations);
-    /*for (int i = 0; operations[i] != NULL; i++) {
-      printf(" %s",operations[i]);
-      }*/
-    if (operations[0] == NULL) {
-      continue; //do nothing if blank
+    char tokens[MAX_ARGS][MAX_ARGS_LEN];
+    int lastStr;
+    tokenizer(line,tokens,&lastStr);
+    int i = 0;
+    while (i < lastStr) {
+      printf("%s\n", tokens[i]);
+      i++;
     }
+    line_parser(tokens[0], operations);
+    /*if (operations[0] == NULL) {
+      continue; //do nothing if blank
+      }*/
     //if (is_valid_command(operations[0])) {
-      execute_command(operations);
+    execute_command(operations);
       //printf("\nAwesome\n");
       //} else {
       //printf("ERROR!: '%s' is not a valid command\n", operations[0]);
