@@ -118,7 +118,7 @@ void execute_cd(char ** command) {
   }
 }
 
-void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
+void execute_pipelines(char *commands[][MAX_ARGS_LEN], int numCommands) {
   int pipefd[2 * (numCommands - 1)]; //4 commands->3 pipes, each pipe needs a pipefd[0] read and a pipefd[1] write
   //pipes for every command
   int i;
@@ -145,9 +145,9 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
 	close(pipefd[j]); //close pipes before execvp
       }
       //exec
-      char *operations[MAX_ARGS] = {NULL};
-      //printf("Splitting command: %s\n", commands[i][0]);
-      line_parser(commands[i], operations);
+      char *operations[MAX_ARGS] = {NULL}; 
+      line_parser(commands[i][0], operations);
+      print("%s", operations[0]);
       if (execvp(operations[0], operations) == -1) {
 	  perror("execvp failed.");
 	  exit(EXIT_FAILURE);
@@ -165,7 +165,6 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
     wait(NULL);
   }
 }
-
 int main() {
   char line[MAX_LINE];
 
@@ -183,14 +182,14 @@ int main() {
     int i = 0;
     while (i < numCommands) {
       removeStartSpace(tokens[i]);
-      //printf("%s\n", tokens[i]);
+      printf("%s\n", tokens[i]);
       i++;
     }
     if (numCommands == 1) {
       line_parser(tokens[0], operations);
       execute_command(operations, i);
     } else {
-      execute_pipelines(tokens , numCommands);
+      execute_pipelines((char * (*)[MAX_ARGS_LEN])tokens, numCommands);
     }
   }
   return 0;
