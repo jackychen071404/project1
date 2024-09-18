@@ -68,6 +68,29 @@ void tokenizer_deadline(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN], int* las
   tokens[j][k] = '\0';
 }
 
+
+void tokenizer_redirection(char *line, char**split_line) {
+  char delimiters[] = "<>";
+  char* token = strtok(line, delimiters);
+  int i = 0;
+  while (token != NULL) {
+    split_line[i++] = token;
+    token = strtok(NULL, delimiters);
+  }
+  /*int i = 0, j = 0;
+  char ans;
+  while (line[i] != NULL) {
+    if (line[i] == '>' || line[i] == '<') {
+      ans = line[i];
+      i++;
+      j=0;
+    } else {
+      split_line
+    }
+    
+    }*/
+ }
+
 void removeStartSpace(char *token) {
   int i = 0;
   int count = 0;
@@ -148,6 +171,15 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
       char *operations[MAX_ARGS] = {NULL};
       //printf("Splitting command: %s\n", commands[i][0]);
       line_parser(commands[i], operations);
+
+      if (strcmp(operations[0], "grep") == 0) {
+        // Shift existing arguments to make room for --line-buffered
+        for (int k = MAX_ARGS - 1; k > 1; k--) {
+          operations[k] = operations[k - 1];  // Shift arguments to the right
+        }
+        operations[1] = "--line-buffered"; // Insert --line-buffered after grep
+      }
+      
       if (execvp(operations[0], operations) == -1) {
 	  perror("execvp failed.");
 	  exit(EXIT_FAILURE);
@@ -181,6 +213,10 @@ int main() {
     int numCommands;
     tokenizer_deadline(line,tokens,&numCommands);
     int i = 0;
+    char *shooooka[MAX_ARGS] = {NULL};
+    char test_str[50] = "hi>bye";
+    tokenizer_redirection(test_str, shooooka);
+    printf("%s\n", shooooka[1]);
     while (i < numCommands) {
       removeStartSpace(tokens[i]);
       //printf("%s\n", tokens[i]);
