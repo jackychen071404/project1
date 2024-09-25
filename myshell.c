@@ -198,11 +198,13 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
   }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  int n_prompt = 1; //default is to print the prompt
+  if (argc > 1 && strcmp(argv[1],"-n")==0) n_prompt = 0;
   char line[MAX_LINE];
 
   while (1) {
-    printf("my_shell$");
+    if (n_prompt) printf("my_shell$");
     if (fgets(line, MAX_LINE, stdin) == NULL) {
       printf("\nExiting shell. Thank you!!!!...\n");
       break;
