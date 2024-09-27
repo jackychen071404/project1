@@ -1,4 +1,4 @@
-#include <stdlib.h>
+include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -69,14 +69,18 @@ void tokenizer_deadline(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN], int* las
 }
 
 
-void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN], int *redirNo) {
+void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN]) {
   char delimiters[] = "<>";
-  char* token;
-  int i = 0, j=0, k=0, l=0;
+  char* token = strtok(line, delimiters);
+  /*int i = 0;
+  while (token != NULL) {
+    split_line[i++] = token;
+    token = strtok(NULL, delimiters);
+    }*/
+  int i = 0, j = 0, k = 0;
+  char ans;
   while (line[i] != '\0') {
     if (line[i] == '>' || line[i] == '<') {
-      split_line[j][k] = '\0';
-      redirNo[l++] = (line[i] == '>') ? 1 : 0;
       j++;
       i++;
       k=0;
@@ -88,7 +92,7 @@ void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN], i
     }
     
     }
-    split_line[j][k] = '\0';
+  split_line[j][k] = '\0';
  }
 
 void removeStartSpace(char *token) {
@@ -217,10 +221,8 @@ int main(int argc, char *argv[]) {
     int i = 0;
     char shooooka[MAX_ARGS][MAX_ARGS_LEN] = {{0}};
     char test_str[50] = "hi>bye";
-    int redirNo[50] = {-1};
-    tokenizer_redirection(test_str, shooooka, redirNo);
-    printf("%s\n", shooooka[1]);
-    printf("%d\n",redirNo[0]);
+    tokenizer_redirection(test_str, shooooka);
+    printf("%s\n", shooooka[0]);
     while (i < numCommands) {
       removeStartSpace(tokens[i]);
       //printf("%s\n", tokens[i]);
