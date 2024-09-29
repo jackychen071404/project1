@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <ctype.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
@@ -69,7 +71,7 @@ void tokenizer_deadline(char *line, char tokens[MAX_ARGS][MAX_ARG_LEN], int* las
 }
 
 
-void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN], int *redirNo) {
+void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN], int *redirNo, int* numRedirCommands) {
   char delimiters[] = "<>";
   char* token;
   int i = 0, j=0, k=0, l=0;
@@ -88,6 +90,7 @@ void tokenizer_redirection(char *line, char split_line[MAX_ARGS][MAX_ARG_LEN], i
     }
     
     }
+  *numRedirCommands = j+1;
     split_line[j][k] = '\0';
  }
 
@@ -102,6 +105,17 @@ void removeStartSpace(char *token) {
   }
   token[count] = '\0';
 }
+char *removeLastSpace(char *str)
+{
+  char *end;
+  while(isspace((unsigned char)*str)) str++;
+  if(*str == 0) return str;
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+  end[1] = '\0';
+  return str;
+}
+
 int is_valid_command(char * command) {
   int i;
   for (i = 0; valid_commands[i] != NULL; i++) {
@@ -198,6 +212,36 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
   }
 }
 
+void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCommands, int* redirNo) {
+  int fd; //file descriptor: redirection.
+  int j;
+  for (int i = 1; i < numRedirCommands; i++) {
+    if (redirNo[i-1] == 0) {
+      fd = open(reDirOperations[i], O_RDONLY);
+      if (fd < 0) {
+	perror("Error opening the input file");
+	return;
+      }
+      dup2(fd, STDIN_FILENO); //redirect the stdin into the fd
+      close(fd);
+   } else if (redirNo[i - 1] == 1) {  
+      fd = open(reDirOperations[i], O_WRONLY | O_CREAT | O_TRUNC, 0644); //tags for stdout writing to a file
+      if (fd < 0) {
+         perror("Error opening the output file");
+         return;
+      }
+      dup2(fd, STDOUT_FILENO);  // Redirect stdout to fd
+      close(fd);
+   }
+}
+  char *operations[MAX_ARGS] = {NULL};
+   line_parser(reDirOperations[0], operations);
+   if (execvp(operations[0], operations) == -1) {
+	  perror("execvp failed.");
+	  exit(EXIT_FAILURE);
+	}
+}
+
 int main(int argc, char *argv[]) {
   int n_prompt = 1; //default is to print the prompt
   if (argc > 1 && strcmp(argv[1],"-n")==0) n_prompt = 0;
@@ -215,21 +259,24 @@ int main(int argc, char *argv[]) {
     int numCommands;
     tokenizer_deadline(line,tokens,&numCommands);
     int i = 0;
-    char shooooka[MAX_ARGS][MAX_ARGS_LEN] = {{0}};
-    char test_str[50] = "hi>bye";
+    char reDirOperations[MAX_ARGS][MAX_ARGS_LEN] = {{0}};
+    //char test_str[50] = "hi>bye";
     int redirNo[50] = {-1};
-    tokenizer_redirection(test_str, shooooka, redirNo);
-    printf("%s\n", shooooka[1]);
-    printf("%d\n",redirNo[0]);
+    int numRedirCommands;
+    tokenizer_redirection(line, reDirOperations, redirNo, &numRedirCommands);
+    //printf("%s\n", shooooka[1]);
+    //printf("%d\n",redirNo[0]);
     while (i < numCommands) {
       removeStartSpace(tokens[i]);
-      //printf("%s\n", tokens[i]);
       i++;
     }
-    if (numCommands == 1) {
+    if (numCommands == 1 && numRedirCommands == 1) {
       line_parser(tokens[0], operations);
       execute_command(operations, i);
-    } else {
+    } else if (numCommands == 1 && numRedirCommands > 1) {
+      execute_redir_nopipes(reDirOperations, numRedirCommands, redirNo);
+    }
+    else {
       execute_pipelines(tokens , numCommands);
     }
   }
