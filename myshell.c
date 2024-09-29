@@ -172,7 +172,7 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
       //order is important, dup2() redirect must occur before execvp since execvp will cut the rest of the code
       if (i > 0) {  //redirect input from previous to stdin
 	dup2(pipefd[(i-1)*2], STDIN_FILENO);
-	printf("\n");
+	//printf("\n");
       }
       if (i < numCommands - 1) { //if not last command, redirect output to stdout
 	dup2(pipefd[i*2+1], STDOUT_FILENO); 
@@ -214,32 +214,44 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
 
 void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCommands, int* redirNo) {
   int fd; //file descriptor: redirection.
+  pid_t pid = fork();
   int j;
-  for (int i = 1; i < numRedirCommands; i++) {
-    if (redirNo[i-1] == 0) {
-      fd = open(reDirOperations[i], O_RDONLY);
-      if (fd < 0) {
-	perror("Error opening the input file");
-	return;
-      }
-      dup2(fd, STDIN_FILENO); //redirect the stdin into the fd
-      close(fd);
-   } else if (redirNo[i - 1] == 1) {  
-      fd = open(reDirOperations[i], O_WRONLY | O_CREAT | O_TRUNC, 0644); //tags for stdout writing to a file
-      if (fd < 0) {
-         perror("Error opening the output file");
-         return;
-      }
-      dup2(fd, STDOUT_FILENO);  // Redirect stdout to fd
-      close(fd);
-   }
-}
+
+  if (pid == 0) {
+    for (int i = 1; i < numRedirCommands; i++) {
+      if (redirNo[i-1] == 0) {
+        fd = open(reDirOperations[i], O_RDONLY);
+        if (fd < 0) {
+    perror("Error opening the input file");
+    return;
+        }
+        dup2(fd, STDIN_FILENO); //redirect the stdin into the fd
+        close(fd);
+    } else if (redirNo[i - 1] == 1) {
+        removeStartSpace(reDirOperations[i]);
+        char * fileToDirectInto = removeLastSpace(reDirOperations[i]); //void and char * functions remove starting and trailing spaces
+        fd = open(fileToDirectInto, O_WRONLY | O_CREAT | O_TRUNC, 0644); //tags for stdout writing to a file
+        if (fd < 0) {
+          perror("Error opening the output file");
+          return;
+        }
+        dup2(fd, STDOUT_FILENO);  // Redirect stdout to fd
+        close(fd);
+    }
+  }
   char *operations[MAX_ARGS] = {NULL};
    line_parser(reDirOperations[0], operations);
    if (execvp(operations[0], operations) == -1) {
 	  perror("execvp failed.");
 	  exit(EXIT_FAILURE);
 	}
+  } else if (pid < 0) { 
+      perror("failed to fork");
+      return;
+  } else { 
+      int status;
+      waitpid(pid, &status, 0);
+  }
 }
 
 int main(int argc, char *argv[]) {
