@@ -192,6 +192,7 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
           operations[k] = operations[k - 1];  // Shift arguments to the right
         }
         operations[1] = "--line-buffered"; // Insert --line-buffered after grep
+	operations[2] = "--color=always";
       }
       
       if (execvp(operations[0], operations) == -1) {
@@ -219,32 +220,38 @@ void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCom
 
   if (pid == 0) {
     for (int i = 1; i < numRedirCommands; i++) {
+      removeStartSpace(reDirOperations[i]);
+      char * fileToDirectInto = removeLastSpace(reDirOperations[i]);
       if (redirNo[i-1] == 0) {
-        fd = open(reDirOperations[i], O_RDONLY);
+        fd = open(fileToDirectInto, O_RDONLY);
         if (fd < 0) {
-    perror("Error opening the input file");
-    return;
+	  perror("Error opening the input file");
+	  exit(EXIT_FAILURE);
         }
-        dup2(fd, STDIN_FILENO); //redirect the stdin into the fd
+        if (dup2(fd, STDIN_FILENO) < 0) {
+	  perror("dup2 failed for stdin"); //redirect the stdin into the fd
+	  exit(EXIT_FAILURE);
+	}
         close(fd);
     } else if (redirNo[i - 1] == 1) {
-        removeStartSpace(reDirOperations[i]);
-        char * fileToDirectInto = removeLastSpace(reDirOperations[i]); //void and char * functions remove starting and trailing spaces
         fd = open(fileToDirectInto, O_WRONLY | O_CREAT | O_TRUNC, 0644); //tags for stdout writing to a file
         if (fd < 0) {
           perror("Error opening the output file");
-          return;
+          exit(EXIT_FAILURE);
         }
-        dup2(fd, STDOUT_FILENO);  // Redirect stdout to fd
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+	  perror("dup2 failed for stdout");  // Redirect stdout to fd
+	  exit(EXIT_FAILURE);
+	}
         close(fd);
     }
   }
-  char *operations[MAX_ARGS] = {NULL};
+   char *operations[MAX_ARGS] = {NULL};
    line_parser(reDirOperations[0], operations);
    if (execvp(operations[0], operations) == -1) {
 	  perror("execvp failed.");
 	  exit(EXIT_FAILURE);
-	}
+	  }
   } else if (pid < 0) { 
       perror("failed to fork");
       return;
