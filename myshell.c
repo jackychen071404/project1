@@ -125,8 +125,13 @@ int is_valid_command(char * command) {
   }
   return 0;
 }
+void sigchld_handler(int signo) {
+  while (waitpid(-1, NULL, WNOHANG) > 0); //handle child termination
+}
 
 void execute_command(char ** command, int i) {
+  int background = strcmp(command[i-1], "&");
+  if (!background) command[i-1] = NULL;
   if (strcmp(command[0], "cd") == 0) {
     execute_cd(command);
   } else {
@@ -139,8 +144,12 @@ void execute_command(char ** command, int i) {
       }
       exit(EXIT_FAILURE);
     } else if (pid > 0) { //are we in parent process?
-      int status;
-      waitpid(pid, &status, 0); //status holds the child process status, and 0 means to wait for this child to terminate
+      if (background) {
+	int status;
+	waitpid(pid, &status, 0); //status holds the child process status, and 0 means to wait for this child to terminate
+      } else {
+	signal(SIGCHLD, sigchld_handler);
+      }
     } else {
       perror("fork failed.");
     }
@@ -222,6 +231,7 @@ void execute_redir_pipes(char commands[][MAX_ARGS_LEN], int numCommands) {
       exit(EXIT_FAILURE);
     }
   }
+    
   for (i = 0; i < numCommands; i++) {
     pid_t pid = fork(); //children for eac process
     if (pid == 0) {
@@ -327,9 +337,13 @@ void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCom
   int fd; //file descriptor: redirection.
   pid_t pid = fork();
   int j;
-
+  //printf("%d\n", numRedirCommands);
   if (pid == 0) {
     for (int i = 1; i < numRedirCommands; i++) {
+      int length = strlen(reDirOperations[i]);
+      if (length > 0 && reDirOperations[i][length - 1] == '&') {
+	reDirOperations[i][length - 1] = '\0';
+      }
       removeStartSpace(reDirOperations[i]);
       char * fileToDirectInto = removeLastSpace(reDirOperations[i]);
       if (redirNo[i-1] == 0) {
@@ -366,8 +380,14 @@ void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCom
       perror("failed to fork");
       return;
   } else { 
-      int status;
-      waitpid(pid, &status, 0);
+      int length = strlen(reDirOperations[numRedirCommands - 1]);
+      int is_background = (length > 0 && reDirOperations[numRedirCommands - 1][length - 1] == '&');
+      if (!is_background) {
+         int status;
+         waitpid(pid, &status, 0);  // Wait for the child process to finish
+     } else {
+        signal(SIGCHLD, sigchld_handler);
+     }
   }
 }
 
@@ -379,7 +399,8 @@ int main(int argc, char *argv[]) {
   while (1) {
     if (n_prompt) printf("my_shell$");
     if (fgets(line, MAX_LINE, stdin) == NULL) {
-      printf("\nExiting shell. Thank you!!!!...\n");
+      //printf("\nExiting shell. Thank you!!!!...\n");
+      printf("\n");
       break;
     }
     line[strcspn(line, "\n")] = 0; //fgets reads a \n with enter. Remove it from the line.
@@ -401,7 +422,11 @@ int main(int argc, char *argv[]) {
     }
     if (numCommands == 1 && numRedirCommands == 1) {
       line_parser(tokens[0], operations);
-      execute_command(operations, i);
+      int lastCommand = 0;
+      while (operations[lastCommand] != NULL && lastCommand < MAX_ARGS) {
+        lastCommand++;
+    }
+      execute_command(operations, lastCommand);
     } else if (numCommands == 1 && numRedirCommands > 1) {
       execute_redir_nopipes(reDirOperations, numRedirCommands, redirNo);
     } else if (numCommands > 1 && numRedirCommands == 1) {
