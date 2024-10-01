@@ -194,17 +194,127 @@ void execute_pipelines(char commands[][MAX_ARGS_LEN], int numCommands) {
         operations[1] = "--line-buffered"; // Insert --line-buffered after grep
 	operations[2] = "--color=always";
       }
-      
+
       if (execvp(operations[0], operations) == -1) {
-	  perror("execvp failed.");
-	  exit(EXIT_FAILURE);
-	}
+	perror("execvp failed.");
+	exit(EXIT_FAILURE);
+      }
     }  else if (pid < 0) {
       perror("fork failed, at parent.");
       exit(EXIT_FAILURE);
     }
   }
   //close parents
+  for (int i = 0; i < 2 * (numCommands-1); i++) {
+    close(pipefd[i]);
+  }
+  for (int i = 0; i < numCommands; i++) {
+    wait(NULL);
+  }
+}
+
+void execute_redir_pipes(char commands[][MAX_ARGS_LEN], int numCommands) {
+  int pipefd[2 * (numCommands - 1)]; 
+  int i;
+  for (i = 0; i < numCommands-1;i++) {
+    if (pipe(pipefd + i * 2) == -1) {
+      perror("pipe failed to create.");
+      exit(EXIT_FAILURE);
+    }
+  }
+  for (i = 0; i < numCommands; i++) {
+    pid_t pid = fork(); //children for eac process
+    if (pid == 0) {
+      int execRedir = 0;
+      char reDirOperations[MAX_ARGS][MAX_ARGS_LEN] = {{0}};
+	int redirNo[50] = {-1};
+	int numRedirCommands;
+	tokenizer_redirection(commands[i], reDirOperations, redirNo, &numRedirCommands);
+      if (i == 0) { //first
+	if (redirNo[0] == 0) {//input redirection?
+	  removeStartSpace(reDirOperations[1]);
+	  char * fileToDirectInto = removeLastSpace(reDirOperations[1]);
+	  int fd = open(fileToDirectInto, O_RDONLY);
+	  if (fd < 0) {
+	    perror("Error opening the input file");
+	    exit(EXIT_FAILURE);
+	  }
+	  if (dup2(fd, STDIN_FILENO) < 0) {
+	    perror("dup2 failed for stdin");
+	    exit(EXIT_FAILURE);
+	  }
+	  execRedir = 1;
+	  close(fd);
+	}
+	if (numCommands > 1) {
+	  if (dup2(pipefd[i*2+1], STDOUT_FILENO) < 0) {
+	     perror("dup2 failed for stdout");
+	     exit(EXIT_FAILURE);
+	    }
+	 }
+      }
+      if (i == numCommands - 1) { //last command
+	if (redirNo[0] == 1) {
+	  removeStartSpace(reDirOperations[1]);
+	  char * fileToDirectInto = removeLastSpace(reDirOperations[1]);
+	  int fd = open(fileToDirectInto, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	  if (fd < 0) {
+	    perror("Error opening the output file");
+	    exit(EXIT_FAILURE);
+	  }
+	  if (dup2(fd, STDOUT_FILENO) < 0) {
+	    perror("dup2 failed for stdout");  // Redirect stdout to fd
+	    exit(EXIT_FAILURE);
+	  }
+	  execRedir = 1;
+	  close(fd);
+	}
+      }
+      if (i > 0) {  //redirect input from previous to stdin
+	dup2(pipefd[(i-1)*2], STDIN_FILENO);
+	//printf("\n");
+      }
+      if (i < numCommands - 1) { //if not last command, redirect output to stdout
+	dup2(pipefd[i*2+1], STDOUT_FILENO); 
+      }
+      int j;
+      for (j = 0; j < 2 * (numCommands - 1); j++) {
+	close(pipefd[j]); //close pipes before execvp
+      }
+      if (!execRedir) {
+	char *operations[MAX_ARGS] = {NULL};
+	line_parser(commands[i], operations);
+      	//printf("%s\n",commands[i]);
+	if (strcmp(operations[0], "grep") == 0) {
+	  for (int k = MAX_ARGS - 1; k > 1; k--) {
+	    operations[k] = operations[k - 2];  
+	  }
+        operations[1] = "--line-buffered";
+	operations[2] = "--color=always";
+      }
+	 if (execvp(operations[0], operations) == -1) {
+	  perror("execvp failed.");
+	  exit(EXIT_FAILURE);
+	}
+      } else {
+	char reDirOperations[MAX_ARGS][MAX_ARGS_LEN] = {{0}};
+	int redirNo[50] = {-1};
+	int numRedirCommands;
+	//printf("%s\n", commands[i]);
+	tokenizer_redirection(commands[i], reDirOperations, redirNo, &numRedirCommands);
+	//printf("%s\n", reDirOperations[0]);
+	char *operations[MAX_ARGS] = {NULL};
+	line_parser(reDirOperations[0], operations);
+	if (execvp(operations[0], operations) == -1) {
+           perror("execvp failed.");
+           exit(EXIT_FAILURE);
+	}
+      }
+    } else if (pid < 0) {
+      perror("fork failed, at parent.");
+      exit(EXIT_FAILURE);
+    }
+  }
   for (int i = 0; i < 2 * (numCommands-1); i++) {
     close(pipefd[i]);
   }
@@ -249,9 +359,9 @@ void execute_redir_nopipes(char reDirOperations[][MAX_ARGS_LEN], int numRedirCom
    char *operations[MAX_ARGS] = {NULL};
    line_parser(reDirOperations[0], operations);
    if (execvp(operations[0], operations) == -1) {
-	  perror("execvp failed.");
-	  exit(EXIT_FAILURE);
-	  }
+      perror("execvp failed.");
+      exit(EXIT_FAILURE);
+     }
   } else if (pid < 0) { 
       perror("failed to fork");
       return;
@@ -294,9 +404,10 @@ int main(int argc, char *argv[]) {
       execute_command(operations, i);
     } else if (numCommands == 1 && numRedirCommands > 1) {
       execute_redir_nopipes(reDirOperations, numRedirCommands, redirNo);
-    }
-    else {
+    } else if (numCommands > 1 && numRedirCommands == 1) {
       execute_pipelines(tokens , numCommands);
+    } else {
+      execute_redir_pipes(tokens, numCommands);
     }
   }
   return 0;
